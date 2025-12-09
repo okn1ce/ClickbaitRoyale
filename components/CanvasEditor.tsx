@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { CanvasElement, ThumbnailData } from '../types';
 import { SLOP_ASSETS } from '../constants';
-import { Type, Image, StickyNote, Trash2, RotateCw, Undo, Redo, Type as TypeIcon } from 'lucide-react';
+import { Type, Image, StickyNote, Trash2, RotateCw, Undo, Redo, Type as TypeIcon, ChevronsUp, ChevronsDown } from 'lucide-react';
 
 interface CanvasEditorProps {
   fact: string;
@@ -304,6 +304,19 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({ fact, onComplete }) => {
     }
   };
 
+  // --- LAYER MANAGEMENT ---
+  const bringToFront = () => {
+    if (!selectedId) return;
+    const maxZ = Math.max(...elements.map(e => e.zIndex), 0);
+    updateElementAndHistory(selectedId, { zIndex: maxZ + 1 });
+  };
+
+  const sendToBack = () => {
+    if (!selectedId) return;
+    const minZ = Math.min(...elements.map(e => e.zIndex), 0);
+    updateElementAndHistory(selectedId, { zIndex: minZ - 1 });
+  };
+
   // --- MOUSE INTERACTIONS ---
 
   const handleMouseDown = (e: React.MouseEvent, id: string, mode: DragMode) => {
@@ -316,8 +329,6 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({ fact, onComplete }) => {
     setSelectedId(id);
     
     // For text, the width/height isn't fixed, but visual center matters
-    // Approximate center for text if needed, or just use x,y
-    // Since text width is auto, using scale origin at top-left is easier for now as implemented in renderElement
     const centerX = el.x + (el.width * el.scale) / 2;
     const centerY = el.y + (el.height * el.scale) / 2;
 
@@ -349,7 +360,8 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({ fact, onComplete }) => {
         const startAngle = Math.atan2(startY - centerY, startX - centerX);
         const currentAngle = Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX);
         const rotationDelta = (currentAngle - startAngle) * (180 / Math.PI);
-        updateElementStateOnly(id, { rotation: initialRotation + rotationDelta });
+        // INVERSED rotation based on user request
+        updateElementStateOnly(id, { rotation: initialRotation + rotationDelta }); 
       }
     };
 
@@ -376,9 +388,6 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({ fact, onComplete }) => {
     if (selectedId !== el.id || editingId === el.id) return null;
 
     const handleStyle = "w-4 h-4 bg-white border-2 border-blue-500 rounded-full absolute pointer-events-auto shadow-sm hover:scale-125 transition-transform z-50";
-    
-    // For text, we can't easily rely on 'width' prop for the bounding box because width is not always accurate for auto-width text.
-    // However, the container div has width/height style.
     
     return (
       <>
@@ -483,7 +492,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({ fact, onComplete }) => {
                 ) : el.type === 'image' ? (
                     <img 
                         src={el.content} 
-                        className="w-full h-full object-contain drop-shadow-md pointer-events-none select-none"
+                        className="w-full h-full object-contain drop-shadow-xl pointer-events-none select-none bg-transparent"
                     />
                 ) : (
                     <div 
@@ -569,6 +578,18 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({ fact, onComplete }) => {
                         className="w-8 h-8 rounded cursor-pointer bg-transparent border-none"
                         title="Change Color"
                     />
+                 </div>
+
+                 <div className="w-px h-8 bg-gray-500 mx-1"></div>
+
+                 {/* Layer Controls */}
+                 <div className="flex flex-col gap-1">
+                    <button onClick={bringToFront} className="p-1 hover:bg-gray-600 rounded text-xs flex items-center gap-1" title="Bring to Front">
+                         <ChevronsUp size={14} /> 
+                    </button>
+                    <button onClick={sendToBack} className="p-1 hover:bg-gray-600 rounded text-xs flex items-center gap-1" title="Send to Back">
+                         <ChevronsDown size={14} /> 
+                    </button>
                  </div>
 
                  {/* Text Specific Controls */}

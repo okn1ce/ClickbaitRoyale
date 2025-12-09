@@ -1,8 +1,10 @@
+
 export enum GamePhase {
   LOBBY = 'LOBBY',
   INPUT = 'INPUT',
   SWAP = 'SWAP',
   EDIT = 'EDIT',
+  PRESENTATION = 'PRESENTATION',
   VOTE = 'VOTE',
   RESULT = 'RESULT'
 }
@@ -59,6 +61,7 @@ export interface GameState {
   phase: GamePhase;
   players: Player[];
   roundData: RoundData[];
+  presentationIndex?: number;
 }
 
 export type NetworkMessage = 

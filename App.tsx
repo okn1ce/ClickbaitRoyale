@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GamePhase, Player, RoundData, ThumbnailData, GameState, NetworkMessage } from './types';
 import CanvasEditor from './components/CanvasEditor';
-import { Sparkles, Play, RotateCcw, ThumbsUp, Users, Loader2, Copy, Trophy, Crown, AlertCircle } from 'lucide-react';
+import { Sparkles, Play, RotateCcw, ThumbsUp, Users, Loader2, Copy, Trophy, Crown, AlertCircle, ChevronRight } from 'lucide-react';
 import { COLORS } from './constants';
 
 // Declare PeerJS globally
@@ -254,7 +254,9 @@ const App: React.FC = () => {
                         if (updatedPlayers.every(p => p.hasSubmitted)) {
                             const resetPlayers = updatedPlayers.map(p => ({...p, hasSubmitted: false}));
                             newState.players = resetPlayers;
-                            newState.phase = GamePhase.VOTE;
+                            // Transition to PRESENTATION first, then VOTE
+                            newState.phase = GamePhase.PRESENTATION;
+                            newState.presentationIndex = 0;
                         }
                      }
                  }
@@ -391,6 +393,23 @@ const App: React.FC = () => {
       if (round.assignedToPlayerId === myPeerId) return; // Can't vote for your own drawing
       
       sendToHost({ type: 'VOTE', payload: { roundIndex: idx } });
+  };
+
+  const nextSlide = () => {
+      const currentIdx = gameState.presentationIndex || 0;
+      // If we are at the end, go to vote
+      if (currentIdx >= gameState.roundData.length - 1) {
+          broadcastState({
+              ...gameState,
+              phase: GamePhase.VOTE,
+              presentationIndex: 0
+          });
+      } else {
+          broadcastState({
+              ...gameState,
+              presentationIndex: currentIdx + 1
+          });
+      }
   };
 
   // --- DERIVED STATE UPDATES ---
@@ -638,6 +657,88 @@ const App: React.FC = () => {
      );
   }
 
+  // --- PHASE: PRESENTATION (Slideshow) ---
+  if (gameState.phase === GamePhase.PRESENTATION) {
+      const idx = gameState.presentationIndex || 0;
+      const round = gameState.roundData[idx];
+      
+      if (!round) return <div className="bg-gray-900 h-screen flex items-center justify-center">Loading slides...</div>;
+      
+      const artist = gameState.players.find(p => p.id === round.assignedToPlayerId);
+
+      return (
+          <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4">
+              <div className="w-full max-w-6xl space-y-6">
+                  <div className="text-center animate-in slide-in-from-top duration-500 fade-in">
+                      <h2 className="text-xl text-gray-400 uppercase tracking-widest mb-4">Original Fact by {round.ownerName}</h2>
+                      <div className="text-2xl md:text-4xl font-bold bg-white text-black inline-block px-8 py-4 rotate-[-1deg] shadow-lg">
+                          "{round.originalFact}"
+                      </div>
+                  </div>
+
+                  <div className="aspect-video bg-black rounded-xl border-4 border-gray-700 shadow-2xl relative overflow-hidden mx-auto w-full max-w-4xl animate-in zoom-in duration-500 fade-in">
+                       {round.thumbnail && (
+                             <div 
+                                className="w-full h-full relative"
+                                style={{
+                                    backgroundColor: round.thumbnail.bgColor,
+                                    filter: `saturate(${round.thumbnail.filterSaturation}%) contrast(${round.thumbnail.filterContrast}%) blur(${round.thumbnail.filterBlur || 0}px)`
+                                }}
+                            >
+                                {/* Background Image if exists */}
+                                {round.thumbnail.imageUrl && <img src={round.thumbnail.imageUrl} className="absolute inset-0 w-full h-full object-contain" />}
+                                
+                                {round.thumbnail.canvasState?.map(el => (
+                                    <div 
+                                        key={el.id}
+                                        style={{
+                                            position: 'absolute',
+                                            left: `${(el.x / 800) * 100}%`,
+                                            top: `${(el.y / 450) * 100}%`,
+                                            width: el.type === 'text' ? 'auto' : `${(el.width * el.scale / 800) * 100}%`,
+                                            transform: `rotate(${el.rotation}deg)`,
+                                            zIndex: el.zIndex,
+                                            color: el.color,
+                                        }}
+                                        className={el.type === 'text' ? 'uppercase whitespace-nowrap' : ''}
+                                    >
+                                        {el.type === 'text' ? (
+                                            <span style={{ fontFamily: el.fontFamily || 'Anton', fontSize: '2.5vw' }} className="drop-shadow-md">{el.content}</span>
+                                        ) : el.type === 'image' ? (
+                                            <img src={el.content} className="w-full h-full object-contain drop-shadow-md" />
+                                        ) : (
+                                            <div dangerouslySetInnerHTML={{__html: el.content}} />
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                  </div>
+
+                  <div className="text-center pt-4 animate-in slide-in-from-bottom duration-500 fade-in">
+                       <h3 className="text-gray-500 text-sm uppercase">Created by</h3>
+                       <p className="text-3xl font-impact text-white tracking-wider">{artist?.name || "Unknown"}</p>
+                  </div>
+
+                  {isHost ? (
+                      <div className="flex justify-center pt-8">
+                        <button 
+                            onClick={nextSlide}
+                            className="px-12 py-4 bg-yellow-500 hover:bg-yellow-400 text-black font-black text-2xl uppercase rounded-full shadow-xl active:scale-95 transition-transform flex items-center gap-2 hover:shadow-yellow-500/50"
+                        >
+                            Next <ChevronRight strokeWidth={4} />
+                        </button>
+                      </div>
+                  ) : (
+                      <div className="text-center text-yellow-500 animate-pulse font-bold pt-8">
+                          Waiting for Host...
+                      </div>
+                  )}
+              </div>
+          </div>
+      )
+  }
+
   // --- PHASE 4: VOTE ---
   if (gameState.phase === GamePhase.VOTE) {
       const iHaveSubmitted = gameState.players.find(p => p.id === myPeerId)?.hasSubmitted;
@@ -672,7 +773,7 @@ const App: React.FC = () => {
                                         }}
                                     >
                                         {/* Background Image if exists */}
-                                        {round.thumbnail.imageUrl && <img src={round.thumbnail.imageUrl} className="absolute inset-0 w-full h-full object-cover" />}
+                                        {round.thumbnail.imageUrl && <img src={round.thumbnail.imageUrl} className="absolute inset-0 w-full h-full object-contain" />}
                                         
                                         {/* Canvas Elements */}
                                         {round.thumbnail.canvasState?.map(el => (

@@ -29,6 +29,7 @@ const App: React.FC = () => {
   // --- LOCAL GAMEPLAY STATE ---
   const [myFact, setMyFact] = useState('');
   const [myAssignedFact, setMyAssignedFact] = useState<RoundData | null>(null);
+  const [votingFor, setVotingFor] = useState<number | null>(null);
 
   // --- REFS FOR NETWORK ---
   const peerRef = useRef<any>(null);
@@ -40,6 +41,13 @@ const App: React.FC = () => {
   useEffect(() => {
     isHostRef.current = isHost;
   }, [isHost]);
+
+  // Reset voting state when phase changes
+  useEffect(() => {
+      if (gameState.phase !== GamePhase.VOTE) {
+          setVotingFor(null);
+      }
+  }, [gameState.phase]);
 
   // --- INITIALIZATION ---
   useEffect(() => {
@@ -74,22 +82,12 @@ const App: React.FC = () => {
          // Use Ref because closure captures initial state
          if (isHostRef.current) {
              connectionsRef.current.set(conn.peer, conn);
-             
-             // Automatically sync state to new joiner
-             // We need to access the LATEST gameState here. 
-             // Ideally we should have gameState in a ref too, but for now 
-             // let's rely on the Client sending a JOIN message to trigger a broadcast.
-         } else {
-             // If I'm not a host, I shouldn't really be accepting random connections 
-             // unless it's P2P logic, but here we are Star topology.
-             // We can close it or ignore.
          }
       });
 
       conn.on('close', () => {
           if (isHostRef.current) {
               connectionsRef.current.delete(conn.peer);
-              // Optionally remove player from state, or keep them as disconnected
           }
       });
     });
@@ -139,12 +137,6 @@ const App: React.FC = () => {
     if (!isHostRef.current) return; 
 
     // We need to work with the LATEST state.
-    // Since this is inside a callback, 'gameState' might be stale if we aren't careful.
-    // However, React state setters accept a function. But we need to READ the state to modify it properly.
-    // For this simple app, we will use the setState callback pattern where possible, 
-    // OR we can use a ref for gameState. 
-    // For complex logic like "check if all submitted", we need the current list.
-    
     setGameState(currentState => {
         const currentPlayers = [...currentState.players];
         let newState = { ...currentState };
@@ -292,9 +284,6 @@ const App: React.FC = () => {
 
         if (shouldBroadcast) {
             // We need to broadcast the calculated newState
-            // But we are inside setGameState, so we can't call broadcastState directly easily 
-            // without being careful about recursion or state sync.
-            // Hack: Broadcast 'newState' manually here.
             const msg: NetworkMessage = { type: 'STATE_UPDATE', payload: newState };
             connectionsRef.current.forEach(conn => {
                 if (conn.open) conn.send(msg);
@@ -392,6 +381,10 @@ const App: React.FC = () => {
       const round = gameState.roundData[idx];
       if (round.assignedToPlayerId === myPeerId) return; // Can't vote for your own drawing
       
+      // Prevent double voting
+      if (votingFor !== null) return;
+      
+      setVotingFor(idx);
       sendToHost({ type: 'VOTE', payload: { roundIndex: idx } });
   };
 
@@ -615,8 +608,6 @@ const App: React.FC = () => {
 
   // --- PHASE 3: EDIT ---
   if (gameState.phase === GamePhase.EDIT) {
-      // Small safety check - sometimes phase updates before local roundData sync if network is weird
-      // But usually they come in same packet.
       if (!myAssignedFact) {
           return (
             <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4">
@@ -685,7 +676,6 @@ const App: React.FC = () => {
                                     filter: `saturate(${round.thumbnail.filterSaturation}%) contrast(${round.thumbnail.filterContrast}%) blur(${round.thumbnail.filterBlur || 0}px)`
                                 }}
                             >
-                                {/* Background Image if exists */}
                                 {round.thumbnail.imageUrl && <img src={round.thumbnail.imageUrl} className="absolute inset-0 w-full h-full object-contain" />}
                                 
                                 {round.thumbnail.canvasState?.map(el => (
@@ -752,6 +742,7 @@ const App: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 max-w-[1600px] mx-auto pb-20">
                 {gameState.roundData.map((round, idx) => {
                     const isMyDrawing = round.assignedToPlayerId === myPeerId;
+                    const isVotingForThis = votingFor === idx;
                     
                     return (
                         <div 
@@ -759,6 +750,7 @@ const App: React.FC = () => {
                             className={`bg-black rounded-lg overflow-hidden border-4 transition-all group relative
                                 ${isMyDrawing ? 'border-gray-700 opacity-70' : 'border-transparent hover:border-yellow-500 cursor-pointer'}
                                 ${iHaveSubmitted ? 'pointer-events-none grayscale opacity-50' : ''}
+                                ${isVotingForThis ? 'border-green-500 ring-4 ring-green-500/30' : ''}
                             `}
                             onClick={() => !iHaveSubmitted && !isMyDrawing && submitVote(idx)}
                         >
@@ -807,10 +799,19 @@ const App: React.FC = () => {
                                     </div>
                                 )}
                                 
-                                {!isMyDrawing && !iHaveSubmitted && (
+                                {!isMyDrawing && !iHaveSubmitted && !isVotingForThis && (
                                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity z-50">
                                         <div className="bg-white text-black px-6 py-2 rounded-full font-bold flex items-center gap-2 transform scale-110">
                                             <ThumbsUp size={20} /> VOTE
+                                        </div>
+                                    </div>
+                                )}
+
+                                {isVotingForThis && (
+                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
+                                        <div className="text-green-400 font-bold flex flex-col items-center gap-2">
+                                            <Loader2 className="animate-spin" size={32} />
+                                            <span>VOTING...</span>
                                         </div>
                                     </div>
                                 )}

@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { CanvasElement, ThumbnailData } from '../types';
 import { SLOP_ASSETS } from '../constants';
-import { Type, Image, StickyNote, Trash2, RotateCw, Undo, Redo, Type as TypeIcon, ChevronsUp, ChevronsDown } from 'lucide-react';
+import { Type, Image, StickyNote, Trash2, RotateCw, Undo, Redo, Type as TypeIcon, ChevronsUp, ChevronsDown, Loader2 } from 'lucide-react';
 
 interface CanvasEditorProps {
   fact: string;
@@ -34,6 +34,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({ fact, onComplete }) => {
   const [elements, setElements] = useState<CanvasElement[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isPublishing, setIsPublishing] = useState(false);
   
   // History State
   const [history, setHistory] = useState<CanvasElement[][]>([]);
@@ -232,35 +233,57 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({ fact, onComplete }) => {
   };
 
   const addImage = (src: string) => {
-      // Create an image object to get natural dimensions
+      // Load temp image to get dimensions and compress
       const img = new window.Image();
       img.src = src;
       img.onload = () => {
-          // Limit max initial size to prevent it taking over the whole screen
-          const maxSize = 300;
+          const MAX_WIDTH = 600;
           let w = img.width;
           let h = img.height;
+          let finalSrc = src;
+
+          // Compress if too large
+          if (w > MAX_WIDTH) {
+              const scale = MAX_WIDTH / w;
+              w = MAX_WIDTH;
+              h = h * scale;
+
+              const canvas = document.createElement('canvas');
+              canvas.width = w;
+              canvas.height = h;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                  ctx.drawImage(img, 0, 0, w, h);
+                  // Use WebP for compression while supporting transparency
+                  finalSrc = canvas.toDataURL('image/webp', 0.8);
+              }
+          }
+
+          // Visual sizing for the editor (initial placement size)
+          const VISUAL_MAX = 300;
+          let displayW = w;
+          let displayH = h;
           
-          if (w > h) {
-              if (w > maxSize) {
-                  h = h * (maxSize / w);
-                  w = maxSize;
+          if (displayW > displayH) {
+              if (displayW > VISUAL_MAX) {
+                  displayH = displayH * (VISUAL_MAX / displayW);
+                  displayW = VISUAL_MAX;
               }
           } else {
-              if (h > maxSize) {
-                  w = w * (maxSize / h);
-                  h = maxSize;
+              if (displayH > VISUAL_MAX) {
+                  displayW = displayW * (VISUAL_MAX / displayH);
+                  displayH = VISUAL_MAX;
               }
           }
 
           const newEl: CanvasElement = {
             id: generateId(),
             type: 'image',
-            content: src,
-            x: 400 - (w / 2), // Center X
-            y: 225 - (h / 2), // Center Y
-            width: w,
-            height: h,
+            content: finalSrc, // Use compressed content
+            x: 400 - (displayW / 2), // Center X
+            y: 225 - (displayH / 2), // Center Y
+            width: displayW,
+            height: displayH,
             rotation: 0,
             scale: 1,
             zIndex: elementsRef.current.length + 1
@@ -657,10 +680,21 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({ fact, onComplete }) => {
             </div>
             <div className="mt-auto">
                 <button 
-                  onClick={() => onComplete({ canvasState: elements, bgColor, filterContrast: contrast, filterSaturation: saturation, filterBlur: blur })}
-                  className="w-full py-4 bg-green-600 hover:bg-green-500 text-white font-black uppercase tracking-wider text-xl rounded-lg shadow-[0_4px_0_rgb(20,83,45)] active:shadow-none active:translate-y-[4px] transition-all"
+                  onClick={() => {
+                      if(isPublishing) return;
+                      setIsPublishing(true);
+                      setTimeout(() => {
+                         onComplete({ canvasState: elements, bgColor, filterContrast: contrast, filterSaturation: saturation, filterBlur: blur })
+                      }, 50);
+                  }}
+                  disabled={isPublishing}
+                  className="w-full py-4 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:shadow-none disabled:translate-y-0 text-white font-black uppercase tracking-wider text-xl rounded-lg shadow-[0_4px_0_rgb(20,83,45)] active:shadow-none active:translate-y-[4px] transition-all flex items-center justify-center gap-2"
                 >
-                    PUBLISH VIDEO
+                    {isPublishing ? (
+                        <>
+                            <Loader2 className="animate-spin" /> PUBLISHING...
+                        </>
+                    ) : "PUBLISH VIDEO"}
                 </button>
             </div>
         </div>

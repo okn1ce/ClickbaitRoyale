@@ -32,7 +32,6 @@ export const generateAiThumbnail = async (boringFact: string): Promise<string | 
     });
 
     // Extract image
-    // Note: The new SDK structure for image generation response handling
     const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
     if (part && part.inlineData && part.inlineData.data) {
       return `data:image/png;base64,${part.inlineData.data}`;

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GamePhase, Player, RoundData, ThumbnailData, GameState, NetworkMessage } from './types';
 import CanvasEditor from './components/CanvasEditor';
+import ThumbnailRenderer from './components/ThumbnailRenderer';
 import { Sparkles, Play, RotateCcw, ThumbsUp, Users, Loader2, Copy, Trophy, Crown, AlertCircle, ChevronRight } from 'lucide-react';
 import { COLORS } from './constants';
 
@@ -668,41 +669,7 @@ const App: React.FC = () => {
                   </div>
 
                   <div className="aspect-video bg-black rounded-xl border-4 border-gray-700 shadow-2xl relative overflow-hidden mx-auto w-full max-w-4xl animate-in zoom-in duration-500 fade-in">
-                       {round.thumbnail && (
-                             <div 
-                                className="w-full h-full relative"
-                                style={{
-                                    backgroundColor: round.thumbnail.bgColor,
-                                    filter: `saturate(${round.thumbnail.filterSaturation}%) contrast(${round.thumbnail.filterContrast}%) blur(${round.thumbnail.filterBlur || 0}px)`
-                                }}
-                            >
-                                {round.thumbnail.imageUrl && <img src={round.thumbnail.imageUrl} className="absolute inset-0 w-full h-full object-contain" />}
-                                
-                                {round.thumbnail.canvasState?.map(el => (
-                                    <div 
-                                        key={el.id}
-                                        style={{
-                                            position: 'absolute',
-                                            left: `${(el.x / 800) * 100}%`,
-                                            top: `${(el.y / 450) * 100}%`,
-                                            width: el.type === 'text' ? 'auto' : `${(el.width * el.scale / 800) * 100}%`,
-                                            transform: `rotate(${el.rotation}deg)`,
-                                            zIndex: el.zIndex,
-                                            color: el.color,
-                                        }}
-                                        className={el.type === 'text' ? 'uppercase whitespace-nowrap' : ''}
-                                    >
-                                        {el.type === 'text' ? (
-                                            <span style={{ fontFamily: el.fontFamily || 'Anton', fontSize: '2.5vw' }} className="drop-shadow-md">{el.content}</span>
-                                        ) : el.type === 'image' ? (
-                                            <img src={el.content} className="w-full h-full object-contain drop-shadow-md" />
-                                        ) : (
-                                            <div dangerouslySetInnerHTML={{__html: el.content}} />
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                       {round.thumbnail && <ThumbnailRenderer data={round.thumbnail} />}
                   </div>
 
                   <div className="text-center pt-4 animate-in slide-in-from-bottom duration-500 fade-in">
@@ -756,48 +723,7 @@ const App: React.FC = () => {
                         >
                             <div className="aspect-video bg-gray-800 relative flex items-center justify-center">
                                 {/* Render Canvas Data */}
-                                {round.thumbnail && (
-                                    <div 
-                                        className="w-full h-full relative overflow-hidden pointer-events-none"
-                                        style={{
-                                            backgroundColor: round.thumbnail.bgColor,
-                                            filter: `saturate(${round.thumbnail.filterSaturation}%) contrast(${round.thumbnail.filterContrast}%) blur(${round.thumbnail.filterBlur || 0}px)`
-                                        }}
-                                    >
-                                        {/* Background Image if exists */}
-                                        {round.thumbnail.imageUrl && <img src={round.thumbnail.imageUrl} className="absolute inset-0 w-full h-full object-contain" />}
-                                        
-                                        {/* Canvas Elements */}
-                                        {round.thumbnail.canvasState?.map(el => (
-                                            <div 
-                                                key={el.id}
-                                                style={{
-                                                    position: 'absolute',
-                                                    left: `${(el.x / 800) * 100}%`,
-                                                    top: `${(el.y / 450) * 100}%`,
-                                                    width: el.type === 'text' ? 'auto' : `${(el.width * el.scale / 800) * 100}%`,
-                                                    transform: `rotate(${el.rotation}deg)`,
-                                                    zIndex: el.zIndex,
-                                                    color: el.color,
-                                                }}
-                                                className={el.type === 'text' ? 'uppercase whitespace-nowrap' : ''}
-                                            >
-                                                {el.type === 'text' ? (
-                                                    <span 
-                                                        style={{ fontFamily: el.fontFamily || 'Anton', fontSize: '2vw' }}
-                                                        className="drop-shadow-md"
-                                                    >
-                                                        {el.content}
-                                                    </span>
-                                                ) : el.type === 'image' ? (
-                                                    <img src={el.content} className="w-full h-full object-contain drop-shadow-md" />
-                                                ) : (
-                                                    <div dangerouslySetInnerHTML={{__html: el.content}} />
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
+                                {round.thumbnail && <ThumbnailRenderer data={round.thumbnail} />}
                                 
                                 {!isMyDrawing && !iHaveSubmitted && !isVotingForThis && (
                                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity z-50">
@@ -817,7 +743,7 @@ const App: React.FC = () => {
                                 )}
 
                                 {isMyDrawing && (
-                                     <div className="absolute top-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
+                                     <div className="absolute top-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded z-50">
                                          YOURS
                                      </div>
                                 )}
@@ -852,39 +778,7 @@ const App: React.FC = () => {
 
                      {/* Show Winning Thumbnail */}
                      <div className="max-w-md mx-auto aspect-video bg-black rounded border-4 border-yellow-500 relative overflow-hidden mb-8">
-                        {winnerRound.thumbnail && (
-                             <div 
-                                className="w-full h-full relative"
-                                style={{
-                                    backgroundColor: winnerRound.thumbnail.bgColor,
-                                    filter: `saturate(${winnerRound.thumbnail.filterSaturation}%) contrast(${winnerRound.thumbnail.filterContrast}%) blur(${winnerRound.thumbnail.filterBlur || 0}px)`
-                                }}
-                            >
-                                {winnerRound.thumbnail.canvasState?.map(el => (
-                                    <div 
-                                        key={el.id}
-                                        style={{
-                                            position: 'absolute',
-                                            left: `${(el.x / 800) * 100}%`,
-                                            top: `${(el.y / 450) * 100}%`,
-                                            width: el.type === 'text' ? 'auto' : `${(el.width * el.scale / 800) * 100}%`,
-                                            transform: `rotate(${el.rotation}deg)`,
-                                            zIndex: el.zIndex,
-                                            color: el.color,
-                                        }}
-                                        className={el.type === 'text' ? 'uppercase whitespace-nowrap' : ''}
-                                    >
-                                        {el.type === 'text' ? (
-                                            <span style={{ fontFamily: el.fontFamily || 'Anton', fontSize: '2vw' }}>{el.content}</span>
-                                        ) : el.type === 'image' ? (
-                                            <img src={el.content} className="w-full h-full object-contain drop-shadow-md" />
-                                        ) : (
-                                            <div dangerouslySetInnerHTML={{__html: el.content}} />
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                        {winnerRound.thumbnail && <ThumbnailRenderer data={winnerRound.thumbnail} />}
                      </div>
                      
                      <div className="mt-8 grid gap-4 max-h-64 overflow-y-auto">

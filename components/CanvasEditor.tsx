@@ -232,22 +232,44 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({ fact, onComplete }) => {
   };
 
   const addImage = (src: string) => {
-      const newEl: CanvasElement = {
-        id: generateId(),
-        type: 'image',
-        content: src,
-        x: 250,
-        y: 150,
-        width: 300,
-        height: 200,
-        rotation: 0,
-        scale: 1,
-        zIndex: elementsRef.current.length + 1
+      // Create an image object to get natural dimensions
+      const img = new window.Image();
+      img.src = src;
+      img.onload = () => {
+          // Limit max initial size to prevent it taking over the whole screen
+          const maxSize = 300;
+          let w = img.width;
+          let h = img.height;
+          
+          if (w > h) {
+              if (w > maxSize) {
+                  h = h * (maxSize / w);
+                  w = maxSize;
+              }
+          } else {
+              if (h > maxSize) {
+                  w = w * (maxSize / h);
+                  h = maxSize;
+              }
+          }
+
+          const newEl: CanvasElement = {
+            id: generateId(),
+            type: 'image',
+            content: src,
+            x: 400 - (w / 2), // Center X
+            y: 225 - (h / 2), // Center Y
+            width: w,
+            height: h,
+            rotation: 0,
+            scale: 1,
+            zIndex: elementsRef.current.length + 1
+          };
+          const newElements = [...elementsRef.current, newEl];
+          setElements(newElements);
+          addToHistory(newElements);
+          setSelectedId(newEl.id);
       };
-      const newElements = [...elementsRef.current, newEl];
-      setElements(newElements);
-      addToHistory(newElements);
-      setSelectedId(newEl.id);
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -461,7 +483,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({ fact, onComplete }) => {
                 ) : el.type === 'image' ? (
                     <img 
                         src={el.content} 
-                        className="w-full h-full object-cover shadow-2xl pointer-events-none select-none"
+                        className="w-full h-full object-contain drop-shadow-md pointer-events-none select-none"
                     />
                 ) : (
                     <div 

@@ -468,6 +468,10 @@ const App: React.FC = () => {
                 {!myPeerId && <div className="text-center text-xs text-gray-500 animate-pulse">Connecting to Network...</div>}
                 {myPeerId && <div className="text-center text-xs text-gray-700 font-mono">ID: {myPeerId}</div>}
             </div>
+            
+            <footer className="mt-8 text-gray-500 text-sm font-mono opacity-50 hover:opacity-100 transition-opacity">
+                dog67 games
+            </footer>
         </div>
       );
   }
@@ -476,7 +480,7 @@ const App: React.FC = () => {
   if (gameState.phase === GamePhase.LOBBY) {
     return (
       <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4">
-        <div className="max-w-3xl w-full bg-gray-800 rounded-xl p-8 border border-gray-700 shadow-2xl">
+        <div className="max-w-4xl w-full bg-gray-800 rounded-xl p-8 border border-gray-700 shadow-2xl">
             <div className="flex justify-between items-start mb-8">
                 <div>
                     <h2 className="text-3xl font-impact text-white uppercase">Lobby</h2>
@@ -511,7 +515,7 @@ const App: React.FC = () => {
                     </div>
                 ))}
                 {/* Placeholders */}
-                {Array.from({ length: Math.max(0, 4 - gameState.players.length) }).map((_, i) => (
+                {Array.from({ length: Math.max(0, 7 - gameState.players.length) }).map((_, i) => (
                     <div key={i} className="border-2 border-dashed border-gray-700 rounded-lg flex items-center justify-center h-32 opacity-50">
                         <Users className="text-gray-600" />
                     </div>
@@ -644,7 +648,7 @@ const App: React.FC = () => {
                 {iHaveSubmitted ? "Waiting for others to vote..." : "Vote for the most CLICKABLE video"}
             </h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto pb-20">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 max-w-[1600px] mx-auto pb-20">
                 {gameState.roundData.map((round, idx) => {
                     const isMyDrawing = round.assignedToPlayerId === myPeerId;
                     
@@ -693,7 +697,7 @@ const App: React.FC = () => {
                                                         {el.content}
                                                     </span>
                                                 ) : el.type === 'image' ? (
-                                                    <img src={el.content} className="w-full" />
+                                                    <img src={el.content} className="w-full h-full object-contain drop-shadow-md" />
                                                 ) : (
                                                     <div dangerouslySetInnerHTML={{__html: el.content}} />
                                                 )}
@@ -771,7 +775,7 @@ const App: React.FC = () => {
                                         {el.type === 'text' ? (
                                             <span style={{ fontFamily: el.fontFamily || 'Anton', fontSize: '2vw' }}>{el.content}</span>
                                         ) : el.type === 'image' ? (
-                                            <img src={el.content} className="w-full" />
+                                            <img src={el.content} className="w-full h-full object-contain drop-shadow-md" />
                                         ) : (
                                             <div dangerouslySetInnerHTML={{__html: el.content}} />
                                         )}
